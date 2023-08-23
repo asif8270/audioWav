@@ -1,0 +1,1522 @@
+Date: 20th July, 2023
+Project: FRS
+
+Topics to Study:
+Automatic shift from WiFi to BLE  
+Transfer data to Firebase when connected to WiFi
+BLE mesh
+Details:
+Automatic shift from WiFi to BLE
+
+The goal of this task is to program an ESP32 such that it can switch from WiFi to BLE mode if WiFi is not available and switch back to WiFi as soon as it is available. This task can be accomplished by continuously checking the PING. PING is used to check internet connectivity, troubleshooting etc. 
+Connect to WiFi
+Prerequisites:
+Before proceeding with the code, ensure the following prerequisites are met:
+VSCode: Download and install VSCode in your system.
+VSCode
+ESP-IDF Development Environment: Set up the ESP-IDF development environment on the system. Ensure the IDF_PATH environment variable is correctly configured.
+ESPGetStarted
+ESP32 Board: Use an ESP32 development board with WiFi capabilities.Set up the ESP-IDF environment
+Create a new project in your desired directory using the esp_idf tool or manually then open it in VSCode.
+idf.py create-project my_wifi_project
+cd my_wifi_project
+Configure the Wi-Fi settings such as the name and password of the network to which esp32 needed to be connected. 
+Note: If MAC filter is applied to the network then add esp32 mac address to the filter and enable it. 
+espMACAddress
+Run the code provided in the above link in Arduino IDE or PlatformIO in VSCode (Platform “Arduino”) to find the MAC address of ESP32  or ESP8266.
+The wifi_event_handler function in the ESP-IDF WiFi configuration is a callback function used to handle various WiFi events generated during the process of connecting and disconnecting from a WiFi network. The ESP-IDF framework generates these events to inform the application about the progress of the WiFi connection.
+The wifi_event_handler function can be extended to handle other WiFi events or implement more sophisticated logic based on the specific needs of your ESP32 application.
+The ip_event_handler() function is the event handler for IP events. It is called when the ESP32 obtains an IP address from the router after a successful connection.
+The static const s_try_num variable keeps track of the number of connection retries attempted.
+The connect_wifi() function is responsible for connecting the ESP32 to the specified WiFi network. It sets up the WiFi interface, configures the WiFi station, and initiates the connection process. The function returns either WIFI_SUCCESS or WIFI_FAILURE based on the connection result.
+Initialization and Event Loop Setup: The code initializes the ESP network interface, creates the default ESP event loop, sets up the WiFi station configuration, and registers the event handlers for WiFi and IP events.
+WiFi Configuration: Set up the WiFi configuration with the specified SSID, password, and authentication mode (WPA2-PSK).
+WiFi Mode and Configuration Setting: The WiFi mode is set to STA (station mode) using esp_wifi_set_mode(), and the WiFi configuration is set using esp_wifi_set_config().
+WiFi Connection Process: The WiFi driver is started using esp_wifi_start(), and the code waits for the WiFi connection to be successful or fail using xEventGroupWaitBits.
+Event Handling and Cleanup: Based on the event received from the WiFi event handler, the code marks the connection as either successful or a failure. If the connection fails, the code attempts to reconnect up to the maximum allowed failures before giving up. After handling the events, the event handlers are unregistered, and the event group is deleted to release the allocated resources.
+Application Main Function: In the app_main function, the code initializes the NVS (Non-Volatile Storage) and then calls the connect_wifi function to connect to the WiFi network. If the connection is successful, the application continues with other tasks; otherwise, it logs a failure message and terminates.
+Overall, this code is a basic implementation of WiFi connection for an ESP32 using the ESP-IDF and FreeRTOS. The device attempts to connect to the specified WiFi network, retries connection if it fails, and logs the connection status accordingly.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+21st July, 2023
+Project: FRS
+
+Topics to study
+Transfer Data to Firebase realtime database
+Prerequisites:
+Firebase account. If you don't have an account yet then follow the below steps to create one. We also need a Real Time Database inside Firebase to store our data.
+Firebase Account:
+To make Firebase account open internet browser and type:
+Firebase.google.com
+Sign Up to the Firebase with your google account. If you already signed up then skip this step.
+Click on Get started.
+To start a project click on Add project. This will take you to a new page and write the project name of your choice there and click Continue.
+Disable Google Analytics if you don’t need it otherwise keep it enabled and click Continue. After that click Create project. This will take a few seconds then redirects you to the main page where you can now see your project (e.g. demoesp32).
+Click on your project and on the left side under the Develop, you can see Authentication, Database, Storage, Hosting, Functions, and ML Kit. For now, you can click on the Database.
+Scroll down and search for the Realtime Database, click on the Create database button. This will open the Security rules for Realtime Database.
+Under the Security rules for Realtime Database you are provided with two options: Start locked mode and Start in test mode. Select the start in test mode and then click on the enable button. After some loading, a new page will open. You can create variables as per your requirement in the database by clicking “+”. 
+Now to link this firebase database account with the ESP32, store/copy the database link. On the left side click on gear icon and then click on Project settings. 
+Under the settings go to the Service account and on the left side you will see Database secrets. Click on it and store/copy the Secret key with you.
+Posting and getting data using ESP-IDF is a complex task. Alternative way is to use the Arduino Library inside ESP-IDF and good news is that we can do this by installing Arduino ESP32 as ESP-IDF component. To do this follow the below steps.
+Arduino ESP32 as ESP-IDF component:
+Arduino ESP32 only works with ESP-IDF versions between 4.4.4 and 4.4.9 not newer versions. Make sure to install required versions.
+Open VSCode and open the folder where you want to create the project. Then create a new project using ESP-IDF termina inside that folder and give it any name by following command:
+Idf.py create-project -p . name_of_your_project
+Or you can do it manually.
+Then go inside the project folder where you will find main and CMakeLists.txt. Inside that folder create another folder named components.
+Go inside this folder and open terminal inside the folder and type following command:
+git clone https://github.com/espressif/arduino-esp32.git
+This will take time depending upon your internet speed so be patient.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+22nd July, 2023
+Project: FRS
+
+
+Topics to study:
+Transfer Data to Firebase realtime database CONTINUED…
+Code:
+Once you are done with the Arduino as a ESP-IDF component part then open VSCode. After that we will write code in ESP-IDF to connect to the Real time database in Firebase. But  now instead of doing it manually we will use the Arduino library for Firebase connection.
+The good thing about using the Arduino as a component in ESP-IDF is that you can use the Arduino programming language or C or both at the same time but with necessary changes that we will talk about later.
+Include following headers file to your code:
+#include<Arduino.h>
+#include <FirebaseESP32.h>
+#include <WiFi.h>
+Configure your WiFi and Firebase credentials as follows:
+#define firebase_host "replace-with-your.firebaseio.com" #define WIFI_SSID "Your_SSID" 
+#define WIFI_PASSWORD "Your_Password" 
+#define firebase_Auth_key "Replace_with_your_secret_key"
+Note: Follow 1.2.9 and 1.2.10 for firebase_host and Auth_key
+Create Firebase data object:
+FirebaseData firebaseData;
+Create a setup() function and inside the setup() function, we will open a serial connection at a baud rate of 115200.
+Now write the code to connect ESP32 to the local network whose credentials are provided above. 
+WiFi.begin (WIFI_SSID, WIFI_PASSWORD);
+Serial.print("Connecting...");
+Now, we will connect our ESP32 module with Google Firebase by using the Firebase.begin() function. It takes in two parameters. The first is the firebase_host and the second is the firebase_Auth_key.
+Create loop() function and Inside the loop() function we will obtain the sensor readings and handle them accordingly.
+Through Firebase.setFloat() we will update our database with the current sensor(s) readings. This function will take in three parameters. The first is the FirebaseData object which we created. The second is the “project name.” Lastly, we will specify the variable in which we were saving our updated sensor variable i.e., your_variable.
+Firebase.setFloat(firebaseData,/ESP32_APP/TEMPERATURE",temp);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+25th July, 2023
+Project: FRS
+
+
+Topics to study:
+I2S Communication
+The I2S (Inter-IC Sound) protocol is a communication standard used to transmit digital audio data between integrated circuits (ICs) in various electronic devices, such as microcontrollers, digital signal processors, and audio codecs. In ESP32, I2S is a commonly used interface for handling audio data, enabling high-quality audio streaming and processing.
+The ESP32 is a powerful microcontroller developed by Espressif Systems, which includes built-in support for the I2S protocol. It is often used in audio-related applications like music players, Internet radio, voice recognition systems, and more.
+https://www.adafruit.com/product/2130
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+26th July, 2023
+Project: FRS
+
+Topics to study:
+Transfer Data to Firebase realtime database Still Working…
+SPIFFS
+The ESP32 contains a Serial Peripheral Interface Flash File System (SPIFFS). SPIFFS is a lightweight filesystem created for microcontrollers with a flash chip, which are connected by SPI bus, like the ESP32 flash memory.
+SPIFFS lets you access the flash memory like you would do in a normal file system in your computer, but simpler and more limited. You can read, write, close, and delete files. SPIFFS doesn’t support directories, so everything is saved on a flat structure.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+27th July, 2023
+Project: FRS
+
+Topics to study:
+Transfer Data to Firebase realtime database Still Working…
+Memory Partition
+If SPIFFS is never used before then the code for it won’t run. You might get an error saying,
+An Error has occurred while mounting SPIFFS
+It is due to that program which is trying to write/read files from flash memory unable to find the partition for SPIFFS in the memory. 
+Flash memory can be divided into different stacks with specific size e.g. nvs, pyh_init, factory, storage, and these partitions are default partitions.
+Default partitioning does not have SPIFFS partition. And we know that SPIFFS is used to write and read files from the flash memory. So to store our music file lets say, or any other file e.g. file.txt we need to create a partition in the ESP32 flash memory.  
+ESP32 has a flash memory size of 4MB max, but by default it is set to 2MB. First change the memory size from 2MB to 4MB.
+In the menuconfig, navigate to "Serial Flasher Config" and look for the option to set the flash size. Change it to 4MB (or the appropriate value for your specific ESP32 board). Save the configuration and exit the menuconfig.
+
+F
+DFPlayer Mini
+Introduction
+The DFPlayer Mini MP3 Player For Arduino is a small and low cost MP3 module with a simplified output directly to the speaker. The module can be used as a stand alone module with attached battery, speaker and push buttons. It is commonly used to add sound capabilities to various applications, including Arduino and other microcontroller-based projects. The module is manufactured by a company called "DFRobot."
+
+Key Features
+Audio Formats: The module supports common audio formats such as MP3, WAV, and WMA.
+MicroSD Card: Audio files are stored on a MicroSD card, which can be inserted into the module for playback.
+UART Communication: The DFPlayer Mini communicates with the microcontroller (e.g., Arduino) via UART (serial communication) protocol.
+Built-in Amplifier: The module includes a small onboard amplifier, making it possible to connect directly to speakers or headphones without requiring an external amplifier.
+Simple Control: Basic functions like play, pause, volume control, track selection, and more can be easily controlled via simple UART commands from the microcontroller.
+GPIO Pins: The module also provides additional GPIO pins for various purposes, such as triggering specific audio tracks, indicating playback status, or interfacing with external buttons.
+Power Supply: The operating voltage typically ranges from 3.3V to 5V, making it compatible with various microcontrollers.
+Low Power Consumption: The DFPlayer Mini consumes minimal power, making it suitable for battery-powered projects.
+
+Built-in 3W Amplifier: The DFPlayer Mini has a built-in amplifier so this means that we can connect an external speaker to it directly. But the sound won’t be loud enough (depends on the environment) so, we need an external amplifier e.g. PAM8403. 
+
+
+
+
+
+
+
+
+
+
+
+
+28th July, 2023
+Project: FRS
+
+Topics to study:
+Transfer Data to Firebase realtime database Still Working…
+Resolving code and memory issues.
+Switch to BLE mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+29th July, 2023
+Project: FRS
+
+Topics to study:
+Transfer Data to Firebase realtime database Still Working…
+Resolving code and memory issues.
+Initially we were using Arduino as a component for sending data to RTDB in Firebase. But there is an issue with that approach. So, now we will use ESP-IDF for this task.
+After installing ESP-IDF VSCode extension as per (1.1.1). Create a new folder and open that folder inside VSCode.
+Open VSCode and go to File at top left corner click on it. Drop down will appear, find the option Open Folder and then click on it. Browse to the folder that you created in (3.3).
+Now open ESP-IDF Terminal inside VSCode. At bottom you find the ESP-IDF menu bar. Click on the ESP-IDF Terminal button.
+
+
+
+Firebase Pricing
+Table 4.1: Firebase Pricing Plan Comparison
+
+
+SPARK PLAN (FREE)
+BLAZE PLAN (PAY AS YOU GO)
+Description
+The Spark Plan is a completely free tier that offers a generous amount of resources to help you kick-start your app development journey. Ideal for developers who are just starting out or testing their applications, the Spark Plan provides access to several Firebase services with usage limits.
+The Blaze Plan is a pay-as-you-go plan that offers greater flexibility and scalability for developers with growing needs. With no fixed monthly costs, you only pay for the resources you consume. The Blaze Plan also includes a free tier with the same limits as the Spark Plan.
+Realtime Database
+1 GB of storage
+100 simultaneous connections
+10 GB/month data transfer (download)
+$5/GB/month for storage
+No cost but 200k simultaneous connections per database
+$1/GB for data transfer (download) after the first 10 GB/month
+
+
+Cloud Functions
+N/A
+N/A
+N/A
+N/A
+N/A
+$0.40/million invocations after the first 2 million free invocations/month
+Variable pricing for compute time based on allocated resources (memory and CPU)
+$0.12/GB for outbound network data after the first 5 GB/month
+
+
+Authentication
+10,000 verifications/month for phone authentication
+Unlimited for other authentication methods
+
+
+$0.01/verification for phone authentication after the first 10,000 verifications/month
+Unlimited for other authentication methods
+
+
+Hosting
+1 GB storage
+10 GB/month data transfer (download)
+$0.026/GB/month for storage
+$0.15/GB for data transfer (download) after the first 10 GB/month
+
+
+Cloud Storage
+5 GB storage
+20,000 upload operations/month
+50,000 download operations/month
+1 GB/month data transfer (download)
+
+
+$0.026/GB/month for storage
+$0.05/10K upload operations
+$0.004/10K download operations
+$0.12/GB for data transfer (download) after the first 1 GB/month
+
+
+
+
+Note: Prices mentioned in Table 4.1 may vary please refer to Firebase Pricing.
+
+
+31st July, 2023
+Project: FRS
+
+Topics to study:
+BLE Range
+As per project requirement the distance between the devices should be 100m and they should be able to communicate with each other without any data or communication loss. 
+ESP32-WROOM has BLE (Bluetooth Low Energy) v4.2 which has a maximum range of 100m without any obstacle or hindrance. In a real environment it is not possible.
+Plastic enclosures have little effect on the range as plastic used in molding includes ABS, polycarbonate, polyethylene, polypropylene, polyoxymethylene, polystyrene, and polyamide, generally have minimal negative impact on Bluetooth Low Energy (BLE) range.
+By default ESP_BLE_PWR_TYPE_ADV and ESP_BLE_PWR_TYPE_SCAN level is at Level-P3. We can set it to Level-P9 which is the max range ESP can provide. But due to obstacles, antenna orientation, and other factors we get only 30-40 m of range.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 1st Aug, 2023
+Project: FRS
+
+Topics to Study:
+BLE Range Continued…
+Recommendations
+As discussed above, ESP32 on chip antenna can not provide range up to 100m due to some factors. There are few alternatives we can do to improve the range. 
+Other ESP32 ICs and modules.
+ESP32-S3 series
+ESP32-C2 series
+ESP32-C3 series
+ESP32-C6 series
+		
+			Table 1.1.1 : ESP32 Model Comparison
+Model
+Features
+Price $
+Link
+ESP32-S3-WROOM-1-N4 
+32-bit MCU & 2.4 GHz Wi-Fi & Bluetooth 5 (LE).
+512 KB of SRAM and 384 KB of ROM on the chip.
+45 programmable GPIOs, SPI, I2S, I2C, PWM, RMT, ADC, DAC and UART, SD/MMC host and TWAITM.
+
+
+3.25
+3.18
+2.81
+DigiKey
+Mouser
+AliEspress
+ESP32-C2
+32-bit RISC-V MCU & 2.4 GHz Wi-Fi & Bluetooth 5 (LE).
+576 KB ROM, 272 KB SRAM (16 KB for cache) on the chip.
+4 programmable GPIOs: SPI, UART, I2C, LED PWM controller, General DMA controller (GDMA), SAR ADC, Temperature sensor.
+1.81
+2.65
+Mouser
+AliExpress
+ESP32-C3
+32-bit RISC-V MCU & 2.4 GHz Wi-Fi & Bluetooth 5 (LE)
+400KB of SRAM and 384 KB of ROM on the chip.
+15 GPIOs,  UART, I2C, I2S, etc
+
+
+1.88
+1.89
+2.19
+DigiKey
+Mouser
+AliExpress
+ESP32-C6
+32-bit RISC-V MCU & 2.4 GHz Wi-Fi 6 & Bluetooth 5 (LE) & IEEE 802.15.4.
+320 KB ROM, 512 KB SRAM, 16 KB Low-power SRAM on the chip, and works with external flash
+30 (QFN40) or 22 (QFN32) programmable GPIOs, with support for SPI, UART, I2C, I2S, RMT, TWAI and PWM.
+2.89
+AliExpress
+
+
+Note: Prices mentioned in Table 1.1.1 may vary depending upon Manufacturer and delivery mode.
+Using external antennas
+Given that your devices could be located in any direction and there could be obstructions such as walls, an omnidirectional antenna would be the best choice. This type of antenna can transmit and receive signals in all horizontal directions, which is suitable for your case since the devices are not fixed in a particular direction.
+Monopole antennas
+Dipole antennas
+WiFi 5 VS WiFi 6
+
+
+
+WiFi 5
+WiFi 6
+Speed and Throughput
+Wi-Fi 5 offers maximum theoretical speeds of up to 3.5 Gbps in the 5 GHz band. However, in real-world scenarios, the typical throughput is usually around 1 Gbps.
+Wi-Fi 6 provides significantly higher speeds compared to Wi-Fi 5. It supports maximum theoretical speeds of up to 9.6 Gbps in the 5 GHz band. Real-world throughput improvements are also notable, especially in congested environments.
+Efficiency and Capacity
+Wi-Fi 5 uses older technology and lacks some of the advanced features found in Wi-Fi 6, leading to lower efficiency in high-density environments with many connected devices.
+Wi-Fi 6 introduces several improvements in efficiency, such as MU-MIMO (Multi-User, Multiple-Input, Multiple-Output) and OFDMA (Orthogonal Frequency Division Multiple Access), which allow it to handle a larger number of devices simultaneously and increase overall network capacity.
+Range
+Wi-Fi 5: Wi-Fi 5 has good range capabilities, but its performance can degrade over longer distances and when there are obstacles in the signal path.
+Wi-Fi 6 maintains better performance at longer ranges, making it more suitable for larger indoor areas and overcoming signal interference and obstructions.
+Mesh Network Performance
+Wi-Fi 5 can be used in a mesh network setup, but its performance may suffer due to lower capacity and efficiency, especially as the number of nodes and connected devices increase.
+Wi-Fi 6 is better suited for a mesh network due to its improved capacity, efficiency, and ability to handle a larger number of devices, making it a more reliable choice for extending coverage in indoor environments.
+Backward Compatibility
+Wi-Fi 5 devices are backward compatible with older Wi-Fi standards (802.11a/b/g/n), ensuring compatibility with existing devices.
+Wi-Fi 6 devices are also backward compatible with older Wi-Fi standards, providing support for legacy devices.
+Cost
+As an older technology, Wi-Fi 5 devices are generally more affordable compared to Wi-Fi 6 devices.
+Wi-Fi 6 devices may be more expensive, but their prices have been gradually decreasing over time as the technology becomes more widespread.
+Extender
+Speed: When using a Wi-Fi extender with a Wi-Fi 5 mesh network, the speed and throughput of the extended network will be limited by the Wi-Fi 5 standard. The extender will operate as a separate access point and will provide Wi-Fi speeds comparable to Wi-Fi 5, which means theoretical speeds of up to 3.5 Gbps in the 5 GHz band.
+Efficiency and Capacity: The use of a Wi-Fi extender may introduce some additional overhead and reduce overall network efficiency. Additionally, since Wi-Fi 5 has limitations in handling a large number of connected devices, the extended network may face capacity issues in high-density scenarios.
+Range: The extender can improve the range of the Wi-Fi 5 mesh network by repeating the signal, making it suitable for larger indoor areas or overcoming signal obstacles.
+Compatibility: The Wi-Fi extender will be backward compatible with older Wi-Fi standards, ensuring compatibility with existing Wi-Fi 4 (802.11n) and Wi-Fi 3 (802.11g) devices.
+
+
+Speed: Similar to Wi-Fi 5, when using a Wi-Fi extender with a Wi-Fi 6 mesh network, the speed will be limited to the Wi-Fi 6 standard. The extender will provide speeds comparable to Wi-Fi 6, with theoretical speeds of up to 9.6 Gbps in the 5 GHz band.
+Efficiency and Capacity: While using a Wi-Fi extender in a Wi-Fi 6 mesh network, the network will still benefit from the advanced features of Wi-Fi 6, such as MU-MIMO and OFDMA, which improve efficiency and capacity. This ensures better performance in high-density environments with multiple connected devices.
+Range: The extender will extend the range of the Wi-Fi 6 mesh network, maintaining the benefits of Wi-Fi 6's improved performance at longer distances.
+Compatibility: Wi-Fi 6 devices are backward compatible with older Wi-Fi standards, so the extender will also support devices using Wi-Fi 5, Wi-Fi 4, and older standards.
+
+
+
+
+as
+Switch to BLE mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 2nd Aug, 2023
+Project: FRS
+
+Topics to Study:
+After studying all the possible options mentioned in previous slides. We were unable to achieve the required range i.e. 100m between the devices. So the only option left is LorRaWAN which can give a range up to tens of kilometers. As mentioned earlier, indoor environments have obstructions like walls, furniture, and other radio interference devices. All these things reduce the range and coverage area. But LoRaWAN can still provide the required range easily in such an environment. Throughput is the only issue with LoRaWAN which means that its data transfer speed is quite low, approximately up to 46kbps. Which can be resolved if manually upload the audio files into the Firebase RTDB and download the file into our microcontroller and play it as per need.
+Best suitable microcontroller
+
+
+ESP32
+Raspberry Pi Pico
+Raspberry Pi 02W
+ESP32-D0WD-V3 or ESP32-D0WDR2-V3 embedded, Xtensa dual-core 32-bit LX6 microprocessor, up to 240 MHz 
+448 KB ROM 
+520 KB SRAM 
+16 KB SRAM in RTC
+40 MHz crystal oscillator 
+ 4/8/16 MB SPI flash 
+802.11b/g/n 
+Bit rate: 802.11n up to 150 Mbps 
+21 mm × 51 mm form factor
+Dual-core Arm Cortex-M0+ processor, flexible clock running up to 133 MHz
+264kB on-chip SRAM
+2MB on-board QSPI flash
+2.4GHz 802.11n wireless LAN 
+Bluetooth 5.2 
+26 multifunction GPIO pins, including 3 analogue inputs
+2 × UART, 2 × SPI controllers, 2 × I2C controllers, 16 × PWM channels
+1 × USB 1.1 controller and PHY, with host and device support
+8 × Programmable I/O (PIO) state machines for custom peripheral support
+Supported input voltage 1.8–5.5V DC
+Low-power sleep and dormant modes
+Accurate on-chip clock
+Temperature sensor
+
+
+1GHz quad-core 64-bit Arm Cortex-A53 CPU
+512MB SDRAM
+2.4GHz 802.11 b/g/n wireless LAN
+Bluetooth 4.2, Bluetooth Low Energy (BLE), onboard antenna
+Mini HDMI® port and micro USB On-The-Go (OTG) port
+microSD card slot
+CSI-2 camera connector
+HAT-compatible 40-pin header footprint (unpopulated)
+H.264, MPEG-4 decode (1080p30); H.264 encode (1080p30)
+OpenGL ES 1.1, 2.0 graphics
+Micro USB power
+65mm x 30mm
+
+
+
+
+
+
+
+ESP32
+Raspberry Pi Pico
+Raspberry Pi 02W
+LoRaWAN Support
+Some ESP32 boards come with built-in LoRa modules or LoRaWAN support. You can also add external LoRa modules to the ESP32 to enable LoRaWAN communication.
+The Raspberry Pi Pico does not have built-in LoRa capabilities. You will need to add an external LoRa module or use a separate LoRa-enabled board to enable LoRaWAN communication.
+The Raspberry Pi zero 2 W also supports LoRaWAN. But we need to add external LoRa modules to the zero 2 W.
+Power Consumption
+ESP32 has various low-power modes and can be optimized for power consumption, making it suitable for battery-operated applications.
+Raspberry Pi Pico is generally designed for low power and can also be used in battery-powered scenarios, but the power consumption will vary based on the specific components and peripherals connected to it.
+Due its more features and processing ability it requires more power 5V DC 2.5A.
+So compared to ESP32 and Pico it is more power hungry device.
+Processing Power and Memory
+The ESP32 offers more processing power, RAM, and flash memory compared to the Raspberry Pi Pico, which may be advantageous for more complex applications or tasks.
+While the Raspberry Pi Pico is powerful for a microcontroller, it has less processing power, RAM, and flash memory compared to the ESP32.
+Raspberry Pi zero 2 W offers more processing power then ESP32 and Pico as it is equipped with 1GHz quad-core 64-bit Arm Cortex-A53 CPU.
+Development Environment and Language
+Typically programmed using C++ in the Arduino IDE or PlatformIO, which is widely used and supported by a vast community.
+Programmed using MicroPython or C/C++, with MicroPython being more popular due to its simplicity and ease of use.
+Programmed using MicroPython or C/C++, with MicroPython being more popular due to its simplicity and ease of use.
+Mesh Network Support
+The ESP32 is known for its excellent support for mesh networking protocols like ESP-Mesh, which can be helpful for building large-scale mesh networks.
+While it is possible to implement mesh networking on the Raspberry Pi Pico, it may require more effort and development compared to the ESP32.
+Same as Pico.
+
+
+
+
+Download Audio file from RTDB into microcontroller
+Set up Firebase on ESP32:
+Make sure you have installed the Firebase ESP32 library, created a Firebase project, and obtained the necessary credentials (database URL, authentication token, etc.).
+Obtain the Audio File URL:
+Retrieve the URL of the audio file from the RTDB. You should know the exact location (node) where the download URL is stored in the database.
+Use HTTP Client Library:
+Use the "HTTPClient" library available for ESP32 to make an HTTP GET request to download the audio file from the URL.
+Save the File to SD Card:
+Once you have downloaded the file data using the HTTPClient, you can save it directly to the SD card attached to your ESP32
+
+
+LoRaWAN Transceiver
+
+SX1276/77/78/79
+
+
+SX1261, SX1262 & SX1268
+168dB maximum link budget
++20dBm - 100mW constant RF output vs. V supply
++14dBm high efficiency PA
+Programmable bit rate up to 300kbps
+High sensitivity: down to -148dBm
+Bullet-proof front end: IIP3 = -11dBm
+Excellent blocking immunity
+Low RX current of 9.9mA, 200nA register retention
+
+
+SX1261 can transmit up to +15dBm and the SX1262 and SX1268 can transmit up to +22dBm with highly efficient integrated power amplifiers.
+LoRa and FSK Modem
+170dB maximum link budget (SX1262 / 68)
++22dBm or +15dBm high efficiency PA
+Low RX current of 4.6mA
+Integrated DC-DC converter and LDO
+Programmable bit rate up to 62.5kbps LoRa and 300kbps FSK
+High sensitivity: down to -148dBm
+88dB blocking immunity at 1MHz offset
+Co-channel rejection of 19dB in LoRa mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 3rd Aug, 2023
+Project: FRS
+
+Topics to Study:
+How to play audio file on ESP32
+Convert your audio file to a supported format:
+If your audio file is not in the appropriate format (e.g., WAV or raw PCM data), you will need to convert it. ESP32 supports files in .wav and .pcm formats.
+Include the necessary libraries: 
+To use the I2S interface, you'll need to include the ESP32 I2S library. Additionally, you may need to include libraries for decoding and handling the audio file format you chose. Or you can do this manually.
+Configure the I2S interface:
+Set up the I2S interface for output. You'll need to specify the pins used for the I2S communication.
+Read and play the audio file:
+Read the audio file from the flash memory and send it to the I2S interface for output.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 4th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Upload a file to Firebase
+
+
+Download file from Firebase
+External Flash Memory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 5th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Compare EBYTE and BMD300
+
+
+
+BMD300
+E73-2G4M04S1BX
+E73-2G4M04S1B
+RF Parameter
+
+
+
+
+
+
+Frequency
+2.360-2.50 GHz
+2.379-2.496 GHz
+2.379-2.496 GHz
+Transmit Power
++4 dbm max
++4 dbm
++4 dbm
+Receiving Sensitivity
+-96 dbm
+-95 dbm
+-95 dbm
+Antenna
+PCB Integrated
+IPEX
+PCB Integrated
+Air Data Rate
+GFSK at 1 Mbps, 2Mbps
+1 Mbps, 2Mbps
+1 Mbps, 2Mbps
+Bluetooth
+BLE 5.0
+BLE 4.2 / 5.0
+BLE 4.2 / 5.0
+Hardware Parameters
+
+
+
+
+
+
+IC
+nrf52832
+nrf52832
+nrf52832
+Flash
+512 KB
+512 KB
+512 KB
+RAM
+64 KB
+64 KB
+64 KB
+Core
+Arm Cortex-M4F
+Arm Cortex-M4F
+Arm Cortex-M4F
+Package
+SMD
+SMD
+SMD
+Electronic Parameter
+
+
+
+
+
+
+Power Supply
+1.7-3.6 V
+1.8-3.6 V
+1.8-3.6 V
+Transmitting Current
+7.5 mA
+14 mA
+14 mA
+Receiving Current
+5.4 mA @ 1Mbps
+5 mA
+5 mA
+Sleep Current
+0.3 uA
+2 uA
+2 uA
+Pin Configuration
+
+
+
+
+
+
+Communication
+2 Wire Serial Debugging
+2 Wire Serial Debugging
+2 Wire Serial Debugging
+Sound
+I2S
+I2S
+I2S
+
+
+Study GitHub 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 7th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Setup GitHub account
+Create a public repository
+Go to GitHub and sign up if you don’t have an account. At the top right corner you will find the sign up button. Click on it and follow the instructions and provide necessary information to create a new account.
+After signing up, sign in into your new account and complete the account as it will ask you about your GitHub username and you etc.
+Now click on the menu bar on the top left side and click on home. It will take you to the home window where you will find the repositories. For now there will be no repository as a newly created account.
+Click on the new repository button most probably on the left side.
+Name your repository and remember it should be unique.
+Download file from GitHub
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 8th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Check the downloaded file in SPIFFS
+For now we can check if the file is downloaded and saved in SPIFFS successfully or not either by playing it by hosting it to the webserver or by read
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 9th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Check the downloaded file in SPIFFS
+We can check the downloaded audio file by playing it through ESP32 which at this time is not possible as we need components such as an amplifier and a speaker. So, for now we can check it through SPIFFS library internal function name read().
+In order to download file from GitHub into the flash memory of ESP32 there are few steps we need to follow
+Initialize SPIFFS partition
+Connect ESP32 to Internet
+Perform HTTP Get request
+Initialize SPIFFS partition
+To initialize SPIFFS, enable the custom partition of ESP32 by going to Menuconfig -> Partition table -> Enable custom partition. After enabling the custom partition you need to provide the custom partition table in CSV format. Remember to place it in the root directory otherwise you will get an error.
+Connect ESP32 to Internet
+You can connect ESP32 to the internet before initializing the SPIFFS. But cannot perform the http request without internet connection. So, you should take care in implementing and calling the functions otherwise you would get an error. Make sure that ESP32 is connected to the internet before performing the http request. You can connect ESP32 to internet by implementing following three functions:
+nvs_flash_init(): This function initializes the NVS (storage) to store WiFi credentials.
+Configure WiFi Parameters: In your project's configuration, set the WiFi SSID and password. 
+Configure WiFi Parameters: In your project's configuration, set the WiFi SSID and password. 
+void wifi_init_sta() 
+{ 
+wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+ wifi_config_t wifi_config = 
+{ 
+.sta = { 
+.ssid = "YourWiFiSSID", 
+.password = "YourWiFiPassword",
+ },
+ }; 
+ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA)); ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config)); 
+ESP_ERROR_CHECK(esp_wifi_start()); 
+}
+Start WiFi Connection: Call the wifi_init_sta() function to initiate the WiFi connection.
+Handle WiFi Events: Register WiFi event handlers to handle various WiFi-related events, such as connection, disconnection, and authentication.
+Handle Disconnection: Implement a handler for the WIFI_EVENT_STA_DISCONNECTED event to handle WiFi disconnections and attempt to reconnect.
+Perform HTTP Get request
+Define URL and Callbacks: Define the URL of the audio file on GitHub and set up the HTTP event handler callbacks.
+Perform HTTP GET Request: Implement the function to perform the HTTP GET request to download the audio file.
+
+
+
+Check availability of SD card and its Module
+SD card available
+SD card module
+
+
+
+
+
+
+Date: 10th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Programming of external DAC module
+UDA1334A
+PCM5102A
+Library for DAC module
+The library named arduino-audio-tools (a powerful Audio library not only for Arduino) is developed by Phil Schatzman which supports a lot of external DAC devices including the mentioned above. Library has a lot of examples to get started. It includes support for a lot of things like http, I2S, PWM etc. Library includes details on how to connect external DAC modules with ESP32 and what changes should be made according to the type of module.
+Connection table:
+UDA1334A
+ESP32
+VIN
+5V
+GND
+GND
+WSEL
+GPIO14
+DIN
+GPIO22
+BCLK
+GPIO15
+
+
+
+
+
+
+
+
+
+
+
+PCM5102A DAC is very easy to use: Just connect the 3 I2S pins and the power and everything works as expected, w/o changing the configuration! SCK to ground seems to reduce noise.
+PCM5102A
+ESP32
+SCK
+GND
+BCK
+GPIO14
+DIN
+GPIO22
+LCK
+GPIO15
+VIN
+5V
+GND
+GND
+
+Date: 11th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Order components
+Study libraries and its programming 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 12th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Order components
+Study SSR G3MB
+The G3MB SSR (Solid State Relay) is a specific model of SSR manufactured by Omron Corporation, a well-known Japanese electronics company. The G3MB series of SSRs are designed for general-purpose switching applications and are commonly used in various industrial and commercial settings. The "G3MB" designation is typically followed by additional characters that indicate specific variations of the SSR within the series. You can check the series in the DataSheet.
+
+G3MB Specifications
+G3MB has 4 pins, two on input and two on the output side. The input side has 3 and 4 pins which are +ve and -ve pins respectively. The input side has a rated input voltage of 5, 12, and 24 VDC depending upon the model of the G3MB model. 
+The output side has pins 1 and 2 connected to load. The output side can handle voltage up to the 240 VAC, 50/60 Hz frequency, and maximum current of 2A. 
+
+Pin connections
+In order to program the G3MB to control AC load through a microcontroller you need to connect input pins to the microcontroller and output pins to the load. 
+
+G3MB PINS
+ESP32 PINS
+3 (+ve)
+GPIO 5 (Any GPIO)
+4 (-ve)
+GND
+
+
+Programming G3MB with ESP32
+Below is the example code:
+const int ssrControlPin = 5;  // Replace with the actual GPIO 
+void setup() {
+  pinMode(ssrControlPin, OUTPUT);}
+
+void loop() {
+  digitalWrite(ssrControlPin, HIGH);  // Turn on the SSR
+  delay(1000);  // Wait for 1 second
+  digitalWrite(ssrControlPin, LOW);   // Turn off the SSR
+  delay(1000);  // Wait for 1 second
+}
+
+You can modify code according to your application and need e.g. if you want to turn the AC on if the temperature goes above the desire temperature i.e. 30 degree.
+
+#include <DHT.h>
+
+#define DHTPIN 4        // Replace with the actual GPIO 
+#define DHTTYPE DHT22   // Change to DHT11 if using a DHT11 sensor
+
+DHT dht(DHTPIN, DHTTYPE);
+const int ssrControlPin = 5;  // Replace with the actual GPIO pin 
+void setup() {
+  pinMode(ssrControlPin, OUTPUT);
+  dht.begin();
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+
+  if (!isnan(temperature)) {
+    if (temperature > 30.0) {
+      digitalWrite(ssrControlPin, HIGH);  // Turn on the AC
+    } else {
+      digitalWrite(ssrControlPin, LOW);   // Turn off the AC
+    }
+  }
+
+  delay(5000);  // Wait for 5 seconds before taking another reading
+}
+
+Study Power Supply Chip HLK-PM03
+The HLK-PM03 is a type of AC-DC power module that's commonly used for power supply applications in various electronic devices. It's manufactured by Hi-Link Electronic Co., Ltd., a company known for producing power supply solutions and modules. The HLK-PM03 is part of their series of power modules designed to provide reliable and efficient power conversion.
+
+Here are some key features and details about the HLK-PM03 power module:
+Input and Output:
+The module accepts an input voltage of AC 90V to 264V or DC 100V to 370V, depending on the specific version.
+It provides a regulated DC output voltage, commonly in the range of 3.3V, 5V, 9V, 12V, or other customizable voltages.
+Isolation:
+The HLK-PM03 typically offers isolation between the input and output sides. This isolation helps enhance safety and reduce the risk of electrical shock.
+	For more details about the HLK-PM03 please refer to the Datasheet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 14th Aug, 2023
+Project: FRS
+
+Topics to Study:
+ESP-IDF build system
+The build system in ESP-IDF is designed to simplify the process of building firmware for ESP32 and ESP8266 devices. It uses a combination of CMake and Make to manage the build process. Here's an overview of the ESP-IDF build system:
+CMake Configuration: ESP-IDF projects are typically organized into a directory structure containing source files, configuration files, and build-related scripts. The build system uses CMake for configuring the project. The CMakeLists.txt file in the project's root directory is the main configuration file.
+CMakeLists.txt is the most important component of the build system. If you want to integrate an external library in your current project then you need to configure your CMakeLists.txt file properly otherwise you will get an error.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 17th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Integrating SD card with ESP32 using ESP-IDF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 18th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Integrating SD card with ESP32 using ESP-IDF
+Downloading audio file from GitHub into the SD card
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 19th Aug, 2023
+Project: FRS
+
+Topics to Study:
+Integrating SD card with ESP32 using ESP-IDF
+Downloading audio file from GitHub into the SD card
+Playing Audio file with internal DAC of ESP32
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 21st Aug, 2023
+Project: FRS
+
+Topics to Study:
+Playing Audio file with internal DAC of ESP32
+Changes in the PCB
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Date: 22nd Aug, 2023
+Project: FRS
+
+Topics to Study:
+Check the downloaded audio file in PC
+
+Upload sensor data to Firebase RTDB
+Main purpose of this task is to upload sensor data light or any desired sensor to Firebase RTDB. To do this you need to follow below given steps.
+Integrating TEMT6000 with ESP32
+The TEMT6000 is a light sensor or photodetector component that is often used to measure light intensity or ambient light levels. It is a small, low-cost sensor that can be used in various applications where light sensing is required. Some key features of the TEMT6000 include:
+Analog Output: The TEMT6000 typically provides an analog output voltage that is proportional to the intensity of the light falling on the sensor. This analog output can be read by a microcontroller or analog-to-digital converter (ADC).
+Wide Range: It can detect light across a relatively wide range of illuminance levels, making it suitable for both indoor and outdoor applications.
+Spectral Response: The TEMT6000 has a spectral response that is sensitive to visible light, which means it responds to light in the human-visible spectrum.
+Low Power Consumption: It is designed to be energy-efficient and has low power consumption, which is important in battery-powered applications.
+Applications of the TEMT6000 include ambient light sensing for automatic brightness adjustment in displays, light-sensitive switches, outdoor lighting control, and various other applications where the measurement of light intensity is needed.
+TEMT connection w/h ESP32:
+Connect TEMT6000 light sensor according to following table:
+
+TEMT600
+Description
+ESP32
+VCC
+Supply Voltage (3.3 or 5)
+3V3 or VIN
+GND
+Ground
+GND
+OUT/SIG
+Analog Output
+Analog Pin
+
+
+Program TEMT6000
+Set Up the ESP-IDF Environment:
+Install the ESP-IDF framework by following the official installation instructions provided by Espressif for your operating system. You can find these instructions in the ESP-IDF documentation.
+Create an ESP-IDF Project:
+Create a new ESP-IDF project or use an existing one if you already have one set up.
+You can write your own code. But it is better to use an open source library. For TEMT6000 you can use TEMT_ESP32. By using this library you can measure Illuminance and intensity of light precisely. 
+
+temt6000__ReadLightIntensity(&device, TEMT6000_SAMPLES_NUM, &measurement.lightIntensity)
+printf("\nLight intensity: %.2f%%", measurement.lightIntensity);
+
+temt6000__ReadIlluminance(&device, TEMT6000_SAMPLES_NUM, &measurement.illuminance)
+printf("\nIlluminance: %.2f lux", measurement.illuminance);
+
+Uploading data
+You can upload data to Firebase RTDB in Json format. For this also you can do it manually by yourself or through a library. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	Working On Hardware
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
